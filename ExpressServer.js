@@ -10,6 +10,14 @@ const redisStore = require("connect-redis")(expressSession);
 
 const mongoID = require("mongoid-js");
 
+const isAllowed = (req, res, next) => {
+  const email = req?.session?.email;
+  if (email) {
+    return next();
+  } else {
+    res.end("User is not allowed");
+  }
+};
 
 module.exports = class ExpressServer {
   constructor({ HTTP_PORT, REDIS_PORT, REDIS_HOST }) {
@@ -32,7 +40,7 @@ module.exports = class ExpressServer {
           host: this.REDIS_HOST,
           port: this.REDIS_PORT,
           client: redisClient,
-          ttl: 2 * 60,
+          ttl: 5 * 60,
         }),
       })
     );
@@ -52,13 +60,9 @@ module.exports = class ExpressServer {
         // res.sendFile("index.html");
         res.end("Home page. Login to gain more access");
       })
-      .get("/admin", (req, res) => {
-        if (req?.session?.email) {
-          res.write(`Hello ${req.session.email} <br>`);
-          res.end("<a href=" + "/logout" + ">Logout</a>");
-        } else {
-          res.end("Please login first.");
-        }
+      .get("/admin", isAllowed, (req, res) => {
+        res.write(`Hello ${req.session.email} <br>`);
+        res.end("<a href=" + "/logout" + ">Logout</a>");
       })
       .post("/login", (req, res) => {
         const email = req?.body?.email;
@@ -70,7 +74,7 @@ module.exports = class ExpressServer {
           res.end("Login failed");
         }
       })
-      .get("/logout", (req, res) => {
+      .get("/logout", isAllowed, (req, res) => {
         req.session.destroy((err) => {
           if (err) {
             return console.log(err);
