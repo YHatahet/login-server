@@ -23,6 +23,10 @@
 
 * Stores express sessions inside redis.
 
+### [dotenv](https://www.npmjs.com/package/dotenv)
+
+* Loads environment variables from a `.env` file into `process.env`
+
 
 ## API
 
