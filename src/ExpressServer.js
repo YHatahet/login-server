@@ -40,7 +40,7 @@ module.exports = class ExpressServer {
           host: this.REDIS_HOST,
           port: this.REDIS_PORT,
           client: redisClient,
-          ttl: 5 * 60,
+          ttl: 1 * 60,
         }),
       })
     );
