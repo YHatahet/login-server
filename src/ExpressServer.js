@@ -10,23 +10,7 @@ const redisClient = redis.createClient();
 const redisStore = require("connect-redis")(expressSession);
 const mongoID = require("mongoid-js");
 
-/**
- * WIP:
- *
- * Middleware that checks if the user is authorized to use a given API
- * @param {*} req
- * @param {*} res
- * @param {*} next
- * @returns {void} `void`
- */
-const isAllowed = (req, res, next) => {
-  const email = req?.session?.email;
-  if (email) {
-    return next();
-  } else {
-    res.end("User is not allowed");
-  }
-};
+const router = require("./router/routes");
 
 module.exports = class ExpressServer {
   constructor({ HTTP_PORT, REDIS_PORT, REDIS_HOST }) {
@@ -74,49 +58,6 @@ module.exports = class ExpressServer {
     // https://stackoverflow.com/questions/24330014/bodyparser-is-deprecated-express-4
     app.use(bp.json()); // looks at requests where the 'Content-Type: application/json' header is present
     app.use(bp.urlencoded({ extended: true })); //same but for URL-encoded requests. 'extended: true' says that 'req.body' object contains values of any type, not just strings.
-
-    const router = express.Router();
-
-    router
-      /**
-       * Get home page
-       */
-      .get("/", (req, res) => {
-        if (req?.session?.email) {
-          return res.redirect("/admin");
-        }
-        res.end("Home page. Login to gain more access");
-      })
-      /**
-       * Check if session has admin privileges
-       */
-      .get("/admin", isAllowed, (req, res) => {
-        res.end(`Hello ${req.session.email}`);
-      })
-      /**
-       * Login User
-       */
-      .post("/login", (req, res) => {
-        const email = req?.body?.email;
-        if (email) {
-          req.session.email = email;
-          // TODO add email and password checker
-          res.end("Login successful");
-        } else {
-          res.end("Login failed");
-        }
-      })
-      /**
-       * Logout User
-       */
-      .get("/logout", isAllowed, (req, res) => {
-        req.session.destroy((err) => {
-          if (err) {
-            return console.log(err);
-          }
-          res.end("logout successful");
-        });
-      });
 
     app.use(router);
 
