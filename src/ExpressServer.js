@@ -1,5 +1,6 @@
 "use strict";
 
+const http = require("http");
 const express = require("express");
 const expressSession = require("express-session");
 const bp = require("body-parser");
@@ -7,9 +8,17 @@ const bp = require("body-parser");
 const redis = require("redis");
 const redisClient = redis.createClient();
 const redisStore = require("connect-redis")(expressSession);
-
 const mongoID = require("mongoid-js");
 
+/**
+ * WIP:
+ *
+ * Middleware that checks if the user is authorized to use a given API
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns {void} `void`
+ */
 const isAllowed = (req, res, next) => {
   const email = req?.session?.email;
   if (email) {
@@ -24,23 +33,39 @@ module.exports = class ExpressServer {
     this.HTTP_PORT = HTTP_PORT ? HTTP_PORT : 3000;
     this.REDIS_HOST = REDIS_HOST ? REDIS_HOST : "localhost";
     this.REDIS_PORT = REDIS_PORT ? REDIS_PORT : 6379;
-    this.session;
-    this.secret = mongoID(); //TODO maybe move to "secret" in expressSession
+    this.server;
     this.__init();
   }
 
+  /**
+   * ! FOR TESTING PURPOSES !
+   *
+   * Programmatically stops the express server instance from listening.
+   * @returns {void} `undefined`
+   */
+  stop() {
+    if (this.server instanceof http.Server) {
+      console.log(`Closing server with port ${this.HTTP_PORT}`);
+      this.server.close();
+    }
+  }
+
+  /**
+   * Initializes the express app with all the listeners and middleware
+   * @returns {void} `undefined`
+   */
   __init() {
     const app = express();
     app.use(
       expressSession({
-        secret: this.secret,
+        secret: mongoID(),
         saveUninitialized: true,
         resave: true,
         store: new redisStore({
           host: this.REDIS_HOST,
           port: this.REDIS_PORT,
           client: redisClient,
-          ttl: 1 * 60,
+          ttl: 5 * 60,
         }),
       })
     );
@@ -53,17 +78,24 @@ module.exports = class ExpressServer {
     const router = express.Router();
 
     router
+      /**
+       * Get home page
+       */
       .get("/", (req, res) => {
         if (req?.session?.email) {
           return res.redirect("/admin");
         }
-        // res.sendFile("index.html");
         res.end("Home page. Login to gain more access");
       })
+      /**
+       * Check if session has admin privileges
+       */
       .get("/admin", isAllowed, (req, res) => {
-        res.write(`Hello ${req.session.email} <br>`);
-        res.end("<a href=" + "/logout" + ">Logout</a>");
+        res.end(`Hello ${req.session.email}`);
       })
+      /**
+       * Login User
+       */
       .post("/login", (req, res) => {
         const email = req?.body?.email;
         if (email) {
@@ -74,6 +106,9 @@ module.exports = class ExpressServer {
           res.end("Login failed");
         }
       })
+      /**
+       * Logout User
+       */
       .get("/logout", isAllowed, (req, res) => {
         req.session.destroy((err) => {
           if (err) {
@@ -85,7 +120,7 @@ module.exports = class ExpressServer {
 
     app.use(router);
 
-    app.listen(this.HTTP_PORT, () => {
+    this.server = app.listen(this.HTTP_PORT, () => {
       console.log(`server running on port ${this.HTTP_PORT}`);
     });
   }
